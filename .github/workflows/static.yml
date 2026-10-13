@@ -1,1 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Clock In/Out System</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; background: #f4f4f9; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        input, select, button { width: 100%; padding: 10px; margin: 8px 0; box-sizing: border-box; }
+        button { background: #007BFF; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .admin-section { display: none; }
+    </style>
+</head>
+<body>
 
+    <div class="card">
+        <h2>Clock In / Out Portal</h2>
+        <label>Your Name:</label>
+        <input type="text" id="userName" placeholder="Enter your full name">
+
+        <label>Role:</label>
+        <select id="userRole">
+            <option value="Student">Student</option>
+            <option value="Staff">Staff</option>
+        </select>
+
+        <button onclick="recordTime('Clock In')">Clock In</button>
+        <button onclick="recordTime('Clock Out')">Clock Out & Sync</button>
+        <p id="statusMsg" style="color: green; font-weight: bold;"></p>
+    </div>
+
+    <div class="card">
+        <button onclick="toggleAdmin()">Toggle Admin Access</button>
+        <div id="adminPanel" class="admin-section">
+            <h3>Admin Dashboard (Local Cache)</h3>
+            <button onclick="loadLocalLogs()">View Local Logs</button>
+            <pre id="logOutput" style="background: #eee; padding: 10px; max-height: 150px; overflow-y: auto;"></pre>
+        </div>
+    </div>
+
+<script>
+    // Replace with your deployed Google Apps Script Web App URL
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyFUgmVibi808NoqOxNLvXcw6588wG07LkN5eu-fm-5_yQl8_Ow3GigQMljmu8Gwo8B/exec";
+
+    function recordTime(action) {
+        const name = document.getElementById("userName").value.trim();
+        const role = document.getElementById("userRole").value;
+        const timestamp = new Date().toLocaleString();
+
+        if (!name) {
+            alert("Please enter your name first!");
+            return;
+        }
+
+        const record = { name, role, action, timestamp };
+
+        // 1. Store locally first
+        let localLogs = JSON.parse(localStorage.getItem("attendanceLogs")) || [];
+        localLogs.push(record);
+        localStorage.setItem("attendanceLogs", JSON.stringify(localLogs));
+
+        document.getElementById("statusMsginnerText").innerText = `Successfully recorded ${action} locally!`;
+
+        // 2. If clocking out, attempt upload to Google Sheets
+        if (action === "Clock Out") {
+            syncToGoogleSheets(record);
+        }
+    }
+
+    function syncToGoogleSheets(record) {
+        fetch(WEB_APP_URL, {
+            method: "POST",
+            mode: "no-cors", // Required for simple Google Apps Script endpoints
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(record)
+        }).then(() => {
+            document.getElementById("statusMsg").innerText = "Clocked out & synced to Google Sheet!";
+        }).catch(err => {
+            console.error("Sync failed:", err);
+            document.getElementById("statusMsg").innerText = "Saved locally, but sheet sync failed.";
+        });
+    }
+
+    function toggleAdmin() {
+        const panel = document.getElementById("adminPanel");
+        panel.style.display = panel.style.display === "block" ? "none" : "block";
+    }
+
+    function loadLocalLogs() {
+        let localLogs = JSON.parse(localStorage.getItem("attendanceLogs")) || [];
+        document.getElementById("logOutput").innerText = JSON.stringify(localLogs, null, 2);
+    }
+</script>
+</body>
+</html>
